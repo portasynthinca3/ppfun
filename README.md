@@ -32,7 +32,7 @@ print('Cooldown after setting the pixel: ' + str(canv.remaining_cooldown()))
 ## PPFun_api class
 This is where the journey starts. You create a client by creating an instance of this class. The library then fetches some data from the server.
 It is available through these functions:
-* `list_canv()` - returns a list of canvas descriptors. Each descriptor is a dictionary that contain the `title`, `description`, `size` and `identifier` keys
+* `list_canv()` - returns a list of canvas descriptors. Each descriptor is a dictionary that contains the `title`, `description`, `size` and `identifier` keys
 * `get_canv(ident)` - returns a canvas object of the canvas with a specific identifier
 ## PPFun_canv class
 This class contains all the functions you need to create your masterpiece. Here they are:

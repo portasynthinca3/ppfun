@@ -17,7 +17,7 @@ class PPFun_canv():
     desc = ''
     size = 0
     _cooldown = 0
-    _cooldown_upd = None
+    _cooldown_upd = datetime.datetime.now()
 
     # class constructor
     def __init__(self, desc, iid):
@@ -73,6 +73,7 @@ class PPFun_canv():
     def remaining_cooldown(self):
         adjust = datetime.datetime.now() - self._cooldown_upd
         self._cooldown = self._cooldown - adjust.total_seconds()
+        self._cooldown_upd = datetime.datetime.now()
         if self._cooldown < 0:
             self._cooldown = 0
         return self._cooldown
