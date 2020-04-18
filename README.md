@@ -25,3 +25,17 @@ print('Lime color ID: ' + str(canv.approx_color((0, 255, 0))))
 canv.set_pixel((-1532, -550), canv.approx_color((0, 255, 0)))
 print('Cooldown after setting the pixel: ' + str(canv.remaining_cooldown()))
 ```
+# installation
+`pip install ppfun`
+
+# documentation
+## PPFun_api class
+This is where the journey starts. You create a client by creating an instance of this class. The library then fetches some data from the server.
+It is available through these functions:
+* `list_canv()` - returns a list of canvas descriptors. Each descriptor is a dictionary that contain the `title`, `description`, `size` and `identifier` keys
+* `get_canv(ident)` - returns a canvas object of the canvas with a specific identifier
+## PPFun_canv class
+This class contains all the functions you need to create your masterpiece. Here they are:
+* `approx_color(rgb_tuple)` - returns a color index that approximates the given color the most
+* `set_pixel(pos_tuple, color_index)` - places a pixel on the map. Throws an exception on error, returns True on success
+* `remaining_cooldown()` - returns the remaining cooldown in seconds
