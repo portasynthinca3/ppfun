@@ -38,7 +38,6 @@ def run():
             (b, g, r, a) = img[y, x]
             # place a pixel if it's not fully transparent
             if a > 64:
-                print(str((x, y)))
                 canv.set_pixel((tl_x + x, tl_y + y), canv.approx_color((r, g, b)))
                 print('Placed a pixel at ' + str((tl_x + x, tl_y + y)) + ' - ' +
                   str((100 * (y * sz_x + x)) / (sz_x * sz_y)) + '% - cooldown: ' + str(canv.remaining_cooldown()) + ' s')
