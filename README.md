@@ -39,3 +39,7 @@ This class contains all the functions you need to create your masterpiece. Here 
 * `approx_color(rgb_tuple)` - returns a color index that approximates the given color the most
 * `set_pixel(pos_tuple, color_index)` - places a pixel on the map. Throws an exception on error, returns True on success
 * `remaining_cooldown()` - returns the remaining cooldown in seconds
+
+# examples
+The `from_readme.py` example is fairly straightforward. Well, it's at the top of this document.\
+The `bot.py` example, however, is a full-fledged auto-drawing bot with a friendly UI. To use it you need to install some libraries like this: `pip install pfun numpy opencv-python`. Also run `pip install windows-curses` if you're on Windows. Simply launch the bot from the command line (or terminal) and follow what it tells you to do. Good luck!
