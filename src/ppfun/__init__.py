@@ -26,7 +26,10 @@ class PPFun_canv():
         self.title = desc['title']
         self.desc = desc['desc']
         self.size = desc['size']
-        self.colors = [(c[0], c[1], c[2]) for c in desc['colors']]
+        # first two colors are ocean blue and land white
+        # I have no idea of why do you need to duplicate them, especially
+        #  if sending color numbers 0 and 1 causes an error, but okay
+        self.colors = [(c[0], c[1], c[2]) for c in desc['colors']][2:]
 
     # returns the number of the most similar color
     def approx_color(self, rgb):
@@ -42,7 +45,7 @@ class PPFun_canv():
             if c_diff < best_color_diff:
                 best_color_diff = c_diff
                 best_color_id = self.colors.index(c)
-        return best_color_id
+        return best_color_id + 2
 
     # sets a pixel on this canvas
     def set_pixel(self, pos, color):
