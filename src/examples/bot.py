@@ -20,7 +20,6 @@ def run():
     img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
     (sz_y, sz_x, channels) = img.shape
     print('Read image with size: ' + str((sz_x, sz_y)))
-    print('Estimated draw time: ' + str(math.ceil(sz_x * sz_y * 4 / 60)) + ' minutes')
     # create the ppfun API class
     pp = ppfun.PPFun_api()
     canv = pp.get_canv('d')
@@ -32,6 +31,7 @@ def run():
                 choice_list.append((x, y))
             elif img[y, x][3] > 64:
                 choice_list.append((x, y))
+    print('Estimated draw time: ' + str(math.ceil(len(choice_list) * 4 / 60)) + ' minutes')
     # draw the image
     while len(choice_list) > 0:
         # pick a random pixel
