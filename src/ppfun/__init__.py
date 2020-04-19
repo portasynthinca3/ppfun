@@ -4,6 +4,8 @@
 import requests
 import json
 import datetime
+import colorsys
+import math
 
 class PPFun_Exception(Exception):
     pass
@@ -34,16 +36,21 @@ class PPFun_canv():
     # returns the number of the most similar color
     def approx_color(self, rgb):
         best_color_id = 0
-        best_color_diff = 255 * 3
+        best_color_diff = 1000
         (r, g, b) = rgb
-        # go through the color
+        (y, i, q) = colorsys.rgb_to_yiq(r / 255, g / 255, b / 255)
+        # go through the color list
         for c in self.colors:
             (cr, cg, cb) = c
+            # convert the color to YIQ
+            (cy, ci, cq) = colorsys.rgb_to_yiq(cr / 255, cg / 255, cb / 255)
             # calculate the difference
-            c_diff = abs(cr - r) + abs(cg - g) + abs(cb - b)
-            # if that difference is smaller than the current best one, assign the new best color
-            if c_diff < best_color_diff:
-                best_color_diff = c_diff
+            diff = math.sqrt(1.0 * ((cy - y) ** 2)
+                           + 1.0 * ((ci - i) ** 2)
+                           + 1.0 * ((cq - q) ** 2))
+            # if that difference is smaller than the current best one, choose it
+            if diff < best_color_diff:
+                best_color_diff = diff
                 best_color_id = self.colors.index(c)
         return best_color_id + 2
 

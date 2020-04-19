@@ -31,7 +31,43 @@ def run():
                 choice_list.append((x, y))
             elif img[y, x][3] > 64:
                 choice_list.append((x, y))
-    print('Estimated draw time: ' + str(math.ceil(len(choice_list) * 4 / 60)) + ' minutes')
+    # render the preview
+    print('Would you like to see a preview of the resulting image? (y/n)', end='')
+    render_preview = input().lower()
+    if render_preview in ['y', 'yes']:
+        img_preview = img.copy()
+        # actual rendering
+        for y in range(sz_y):
+            for x in range(sz_x):
+                # extract pixel data
+                if channels == 4:
+                    (b, g, r, a) = img[y, x]
+                else:
+                    (b, g, r) = img[y, x]
+                    a = 255
+                # adjust the color
+                (r, g, b) = canv.colors[canv.approx_color((r, g, b)) - 2]
+                # assign the new color
+                img_preview[y, x] = (b, g, r) if channels == 3 else (b, g, r, a)
+        # extract path parts
+        path_parts = os.path.splitext(path)
+        # write the image
+        preview_path = path_parts[0] + '_ppfun' + path_parts[1]
+        cv2.imwrite(preview_path, img_preview)
+        print('Preview saved to ' + preview_path)
+    elif render_preview in ['n', 'no']:
+        pass
+    else:
+        print('(y/n)', end='')
+    # ask whether we should start drawing
+    print('Estimated draw time: ' + str(math.ceil(len(choice_list) * 4 / 60)) + ' minutes. Proceed with drawing? (y/n)', end='')
+    proceed = input().lower()
+    if proceed in ['y', 'yes']:
+        pass
+    elif proceed in ['n', 'no']:
+        exit()
+    else:
+        print('(y/n)', end='')
     # draw the image
     while len(choice_list) > 0:
         # pick a random pixel
