@@ -8,6 +8,7 @@ import math
 import random
 import time
 import curses
+import json
 
 def curses_selection(scrn, text, options):
     selection = 0
@@ -52,8 +53,8 @@ def curses_selection(scrn, text, options):
         if ch == curses.KEY_LEFT and selection > 0:
             selection = selection - 1
 
-def curses_prompt(scrn, text):
-    result = ''
+def curses_prompt(scrn, text, suggestion):
+    result = suggestion
     # get terminal width and height
     h, w = scrn.getmaxyx()
     # draw a box
@@ -81,6 +82,12 @@ def curses_prompt(scrn, text):
         else:
             result = result + chr(ch)
 
+def curses_status(scrn, text):
+    # get terminal width and height
+    h, w = scrn.getmaxyx()
+    scrn.addstr(h - 1, 0, 'Status: ' + text + (' ' * (w - len('Status: ' + text) - 1)), curses.A_REVERSE)
+    scrn.refresh()
+
 def run(scrn):
     # clear the screen
     scrn.clear()
@@ -88,16 +95,15 @@ def run(scrn):
     t_h, t_w = scrn.getmaxyx()
     # print some info
     scrn.addstr('PPFunBot by portasynthinca3' + (' ' * (t_w - len('PPFunBot by portasynthinca3'))), curses.A_REVERSE)
-    scrn.addstr(1, 0, 'Please wait, communicating with the server...', curses.A_BLINK)
-    scrn.refresh()
+    curses_status(scrn, 'communicating with the PPFun server')
     # create the ppfun API class
     pp = ppfun.PPFun_api()
     canv = pp.get_canv('d')
     choice_list = []
-    scrn.addstr(1, 0, ' ' * len('Please wait, communicating with the server...'), 0)
-    scrn.refresh()
     # ask the user for the file path
-    path = curses_prompt(scrn, 'Please enter the full path to the image you would like to draw')
+    curses_status(scrn, '')
+    path = curses_prompt(scrn, 'Please enter the full path to the image you would like to draw', '')
+    curses_status(scrn, 'loading the image')
     # read the image
     try:
         img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
@@ -106,8 +112,9 @@ def run(scrn):
         curses_selection(scrn, 'Image loading error. Is this path correct?', ['OK'])
         exit()
     # render the preview
-    render_preview = curses_selection(scrn, 'Would you like to see the preview of the image you\'re about to draw?', ['NO', 'YES'])
+    render_preview = curses_selection(scrn, 'Render the preview?', ['NO', 'YES'])
     if render_preview == 'YES':
+        curses_status(scrn, 'rendering the preview')
         img_preview = img.copy()
         # actual rendering
         for y in range(sz_y):
@@ -130,33 +137,42 @@ def run(scrn):
         curses_selection(scrn, 'Preview saved to ' + preview_path, ['OK'])
     # make a list of pixels
     for y in range(sz_y):
+        curses_status(scrn, 'processing the image - ' + '{:5.1f}'.format(100 * y / sz_y) + '%')
         for x in range(sz_x):
             if channels == 3:
                 choice_list.append((x, y))
             elif img[y, x][3] > 64:
                 choice_list.append((x, y))
     start_px_cnt = len(choice_list)
+    curses_status(scrn, '')
     # check if a backup exists
     path_parts = os.path.splitext(path)
     if os.path.exists(path_parts[0] + '_bup' + path_parts[1]):
         load_bup = curses_selection(scrn, 'There is a state backup for this image. Load it?', ['YES', 'NO'])
         if load_bup == 'YES':
+            curses_status(scrn, 'loading the backup')
             img = cv2.imread(path_parts[0] + '_bup' + path_parts[1], cv2.IMREAD_UNCHANGED)
             # re-make the list of pixels
             choice_list.clear()
+            curses_status(scrn, 'processing the backup - ' + '{:5.1f}'.format(100 * y / sz_y) + '%')
             for y in range(sz_y):
                 for x in range(sz_x):
                     if channels == 3:
                         choice_list.append((x, y))
                     elif img[y, x][3] > 64:
                         choice_list.append((x, y))
+            # load the coordinates
+            with open(path_parts[0] + '_bup.json', 'r') as fp:
+                d = json.load(fp)
+                tl_x = d['x']
+                tl_y = d['y']
     # ask whether we should start drawing
     proceed = curses_selection(scrn, 'Estimated draw time: ' + str(math.ceil(len(choice_list) * 4 / 60)) + ' minutes. Proceed?', ['YES', 'NO'])
     if proceed == 'NO':
         exit()
     # ask the coordinates
-    tl_x = int(curses_prompt(scrn, 'Enter the X ccordinate of the top-left corner in the world'))
-    tl_y = int(curses_prompt(scrn, 'Enter the Y ccordinate of the top-left corner in the world'))
+    tl_x = int(curses_prompt(scrn, 'Enter the X ccordinate of the top-left corner in the world', str(tl_x) if load_bup == 'YES' else ''))
+    tl_y = int(curses_prompt(scrn, 'Enter the Y ccordinate of the top-left corner in the world', str(tl_y) if load_bup == 'YES' else ''))
     # draw the image
     bup_cnt = 0
     while len(choice_list) > 0:
@@ -167,7 +183,7 @@ def run(scrn):
         # stay at 50 seconds of cooldown
         while canv.remaining_cooldown() >= 50:
             scrn.addstr(2, 0, 'Cooldown        : ' + '{:4.1f}'.format(canv.remaining_cooldown()) + ' seconds')
-            scrn.refresh()
+            curses_status(scrn, 'cooling down')
         # get pixel color
         if channels == 4:
             (b, g, r, a) = img[y, x]
@@ -175,8 +191,7 @@ def run(scrn):
             (b, g, r) = img[y, x]
             a = 255
         # place it
-        scrn.addstr(1, 0, 'Please wait, communicating with the server...', curses.A_BLINK)
-        scrn.refresh()
+        curses_status(scrn, 'communicating with the server')
         trying = True
         while trying:
             try:
@@ -184,8 +199,6 @@ def run(scrn):
                 trying = False
             except:
                 curses_selection(scrn, 'An error occured. Place a pixel manually in your browser, return here and hit enter', ['OK'])
-        scrn.addstr(1, 0, ' ' * len('Please wait, communicating with the server...'), 0)
-        scrn.refresh()
         # print some info
         scrn.addstr(1, 0, 'Current position: ' + str((tl_x + x, tl_y + y)))
         scrn.addstr(2, 0, 'Cooldown        : ' + '{:4.1f}'.format(canv.remaining_cooldown()) + ' seconds')
@@ -199,19 +212,25 @@ def run(scrn):
         scrn.addstr(']')
         scrn.addstr(5, 0, 'Remaining time  : around ' + str(math.ceil(len(choice_list) / 15)) + ' minutes     ')
         scrn.refresh()
+        # make a backup if needed
         bup_cnt = bup_cnt + 1
         if bup_cnt >= 10:
             bup_cnt = 0
+            # write the image first
             bup_img = np.zeros(img.shape, np.uint8)
             for point in choice_list:
                 (x, y) = point
                 bup_img[y, x] = img[y, x]
             path_parts = os.path.splitext(path)
             cv2.imwrite(path_parts[0] + '_bup' + path_parts[1], bup_img)
+            # write the coordinates
+            with open(path_parts[0] + '_bup.json', 'w') as fp:
+                json.dump({'x':tl_x, 'y':tl_y}, fp)
     curses_selection(scrn, 'The art is complete!', ['OK'])
     # remove the backup if it exists
     if os.path.exists(path_parts[0] + '_bup' + path_parts[1]):
         os.remove(path_parts[0] + '_bup' + path_parts[1])
+        os.remove(path_parts[0] + '_bup.json')
 
 if __name__ == "__main__":
     curses.wrapper(run)
