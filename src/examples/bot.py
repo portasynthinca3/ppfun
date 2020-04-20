@@ -82,6 +82,37 @@ def curses_prompt(scrn, text, suggestion):
         else:
             result = result + chr(ch)
 
+def curses_bar(progress, width):
+    s = '|'
+    # calculate the amount of filled blocks
+    b = (width - 2) * progress
+    # print the full blocks
+    for i in range(int(math.floor(b))):
+        s = s + '█'
+    # print the partial block
+    remainder = b - math.floor(b)
+    if remainder <= 1/8:
+        s = s + '▏'
+    elif remainder <= 2/8:
+        s = s + '▎'
+    elif remainder <= 3/8:
+        s = s + '▍'
+    elif remainder <= 4/8:
+        s = s + '▌'
+    elif remainder <= 5/8:
+        s = s + '▋'
+    elif remainder <= 6/8:
+        s = s + '▊'
+    elif remainder <= 7/8:
+        s = s + '▉'
+    else:
+        s = s + '█'
+    # fill the rest with spaces
+    for i in range(int((width - 2) - math.ceil(b))):
+        s = s + ' '
+    s = s + '|'
+    return s
+
 def curses_status(scrn, text):
     # get terminal width and height
     h, w = scrn.getmaxyx()
@@ -166,6 +197,8 @@ def run(scrn):
                 d = json.load(fp)
                 tl_x = d['x']
                 tl_y = d['y']
+    else:
+        load_bup = 'NO'
     # ask whether we should start drawing
     proceed = curses_selection(scrn, 'Estimated draw time: ' + str(math.ceil(len(choice_list) * 4 / 60)) + ' minutes. Proceed?', ['YES', 'NO'])
     if proceed == 'NO':
@@ -203,13 +236,7 @@ def run(scrn):
         scrn.addstr(1, 0, 'Current position: ' + str((tl_x + x, tl_y + y)))
         scrn.addstr(2, 0, 'Cooldown        : ' + '{:4.1f}'.format(canv.remaining_cooldown()) + ' seconds')
         scrn.addstr(3, 0, 'Progress        : ' + '{:5.2f}'.format(100 - (100 * len(choice_list) / start_px_cnt)) + '%')
-        progress = int((1 - (len(choice_list) / start_px_cnt)) * (t_w - 2))
-        scrn.addstr(4, 0, '[')
-        for i in range(progress):
-            scrn.addstr(' ', curses.A_REVERSE)
-        for i in range(t_w - 2 - progress):
-            scrn.addstr(' ')
-        scrn.addstr(']')
+        scrn.addstr(4, 0, curses_bar(1 - (len(choice_list) / start_px_cnt), t_w))
         scrn.addstr(5, 0, 'Remaining time  : around ' + str(math.ceil(len(choice_list) / 15)) + ' minutes     ')
         scrn.refresh()
         # make a backup if needed
