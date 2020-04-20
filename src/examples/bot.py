@@ -99,8 +99,12 @@ def run(scrn):
     # ask the user for the file path
     path = curses_prompt(scrn, 'Please enter the full path to the image you would like to draw')
     # read the image
-    img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
-    (sz_y, sz_x, channels) = img.shape
+    try:
+        img = cv2.imread(path, cv2.IMREAD_UNCHANGED)
+        (sz_y, sz_x, channels) = img.shape
+    except:
+        curses_selection(scrn, 'Image loading error. Is this path correct?', ['OK'])
+        exit()
     # render the preview
     render_preview = curses_selection(scrn, 'Would you like to see the preview of the image you\'re about to draw?', ['NO', 'YES'])
     if render_preview == 'YES':
@@ -124,12 +128,6 @@ def run(scrn):
         preview_path = path_parts[0] + '_ppfun_prev' + path_parts[1]
         cv2.imwrite(preview_path, img_preview)
         curses_selection(scrn, 'Preview saved to ' + preview_path, ['OK'])
-    # check if a backup exists
-    path_parts = os.path.splitext(path)
-    if os.path.exists(path_parts[0] + '_bup' + path_parts[1]):
-        load_bup = curses_selection(scrn, 'There is a state backup for this image. Load it?', ['YES', 'NO'])
-        if load_bup == 'YES':
-            img = cv2.imread(path_parts[0] + '_bup' + path_parts[1], cv2.IMREAD_UNCHANGED)
     # make a list of pixels
     for y in range(sz_y):
         for x in range(sz_x):
@@ -137,8 +135,22 @@ def run(scrn):
                 choice_list.append((x, y))
             elif img[y, x][3] > 64:
                 choice_list.append((x, y))
-    # ask whether we should start drawing
     start_px_cnt = len(choice_list)
+    # check if a backup exists
+    path_parts = os.path.splitext(path)
+    if os.path.exists(path_parts[0] + '_bup' + path_parts[1]):
+        load_bup = curses_selection(scrn, 'There is a state backup for this image. Load it?', ['YES', 'NO'])
+        if load_bup == 'YES':
+            img = cv2.imread(path_parts[0] + '_bup' + path_parts[1], cv2.IMREAD_UNCHANGED)
+            # re-make the list of pixels
+            choice_list.clear()
+            for y in range(sz_y):
+                for x in range(sz_x):
+                    if channels == 3:
+                        choice_list.append((x, y))
+                    elif img[y, x][3] > 64:
+                        choice_list.append((x, y))
+    # ask whether we should start drawing
     proceed = curses_selection(scrn, 'Estimated draw time: ' + str(math.ceil(len(choice_list) * 4 / 60)) + ' minutes. Proceed?', ['YES', 'NO'])
     if proceed == 'NO':
         exit()
@@ -154,7 +166,8 @@ def run(scrn):
         (x, y) = element
         # stay at 50 seconds of cooldown
         while canv.remaining_cooldown() >= 50:
-            pass
+            scrn.addstr(2, 0, 'Cooldown        : ' + '{:4.1f}'.format(canv.remaining_cooldown()) + ' seconds')
+            scrn.refresh()
         # get pixel color
         if channels == 4:
             (b, g, r, a) = img[y, x]
@@ -162,6 +175,8 @@ def run(scrn):
             (b, g, r) = img[y, x]
             a = 255
         # place it
+        scrn.addstr(1, 0, 'Please wait, communicating with the server...', curses.A_BLINK)
+        scrn.refresh()
         trying = True
         while trying:
             try:
@@ -169,6 +184,8 @@ def run(scrn):
                 trying = False
             except:
                 curses_selection(scrn, 'An error occured. Place a pixel manually in your browser, return here and hit enter', ['OK'])
+        scrn.addstr(1, 0, ' ' * len('Please wait, communicating with the server...'), 0)
+        scrn.refresh()
         # print some info
         scrn.addstr(1, 0, 'Current position: ' + str((tl_x + x, tl_y + y)))
         scrn.addstr(2, 0, 'Cooldown        : ' + '{:4.1f}'.format(canv.remaining_cooldown()) + ' seconds')
@@ -180,6 +197,7 @@ def run(scrn):
         for i in range(t_w - 2 - progress):
             scrn.addstr(' ')
         scrn.addstr(']')
+        scrn.addstr(5, 0, 'Remaining time  : around ' + str(math.ceil(len(choice_list) / 15)) + ' minutes     ')
         scrn.refresh()
         bup_cnt = bup_cnt + 1
         if bup_cnt >= 10:
