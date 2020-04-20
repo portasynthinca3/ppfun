@@ -10,6 +10,9 @@ import time
 import curses
 import json
 
+paused = False
+method = 'random'
+
 def curses_selection(scrn, text, options):
     selection = 0
     # get terminal width and height
@@ -82,7 +85,7 @@ def curses_prompt(scrn, text, suggestion):
         else:
             result = result + chr(ch)
 
-def curses_bar(progress, width):
+def curses_bar(scrn, y, x, progress, width):
     s = '|'
     # calculate the amount of filled blocks
     b = (width - 2) * progress
@@ -107,11 +110,11 @@ def curses_bar(progress, width):
         s = s + '▉'
     else:
         s = s + '█'
-    # fill the rest with spaces
-    for i in range(int((width - 2) - math.ceil(b))):
-        s = s + ' '
-    s = s + '|'
-    return s
+    # print one string normally
+    scrn.addstr(y, x, s)
+    # print the rest as inverted blocks
+    scrn.addstr('█' * int(width - 2 - math.ceil(b)), curses.A_REVERSE)
+    scrn.addstr('|')
 
 def curses_status(scrn, text):
     # get terminal width and height
@@ -120,6 +123,8 @@ def curses_status(scrn, text):
     scrn.refresh()
 
 def run(scrn):
+    global method
+    global paused
     # clear the screen
     scrn.clear()
     curses.curs_set(False)
@@ -131,9 +136,18 @@ def run(scrn):
     pp = ppfun.PPFun_api()
     canv = pp.get_canv('d')
     choice_list = []
+    # load the configuration
+    cfg_path = os.path.expanduser('~/.ppfun_bot_cfg.json')
+    if os.path.exists(cfg_path):
+        with open(cfg_path, 'r') as f:
+            cfg = json.load(f)
+            if 'method' in cfg:
+                method = cfg['method']
+            if 'paused' in cfg:
+                paused = cfg['paused']
     # ask the user for the file path
     curses_status(scrn, '')
-    path = curses_prompt(scrn, 'Please enter the full path to the image you would like to draw', '')
+    path = os.path.expanduser(curses_prompt(scrn, 'Please enter the full path to the image you would like to draw', ''))
     curses_status(scrn, 'loading the image')
     # read the image
     try:
@@ -159,7 +173,7 @@ def run(scrn):
                 # adjust the color
                 (r, g, b) = canv.colors[canv.approx_color((r, g, b)) - 2]
                 # assign the new color
-                img_preview[y, x] = (b, g, r) if channels == 3 else (b, g, r, a)
+                img_preview[y, x] = (b, g, r) if channels == 3 else (b, g, r, 255 if a > 64 else 0)
         # extract path parts
         path_parts = os.path.splitext(path)
         # write the image
@@ -209,14 +223,75 @@ def run(scrn):
     # draw the image
     bup_cnt = 0
     while len(choice_list) > 0:
-        # pick a random pixel
-        element = random.choice(choice_list)
-        choice_list.remove(element)
-        (x, y) = element
-        # stay at 50 seconds of cooldown
-        while canv.remaining_cooldown() >= 50:
+        # take user input, probably
+        scrn.nodelay(1)
+        inp = scrn.getch()
+        scrn.nodelay(0)
+        if inp < 256 and inp > 0:
+            if chr(inp) == 'p':
+                paused = True
+            elif chr(inp) == 'r':
+                paused = False
+            elif chr(inp) == 'm':
+                method = curses_selection(scrn, 'Select the drawing method (current: ' + method + ')', ['random', 'prog', 'rev-prog'])
+            elif chr(inp) == 's':
+                if method not in ['prog', 'rev-prog']:
+                    curses_selection(scrn, 'Pixel skipping is supported only in progressive and reverse-progressive modes', ['OK'])
+                else:
+                    if method == 'prog':
+                        choice_list = choice_list[1:]
+                        element = choice_list[0]
+                    elif method == 'rev-prog':
+                        choice_list = choice_list[:-1]
+                        element = choice_list[-1]
+                    scrn.addstr(1, 0, 'Current position: ' + str((tl_x + element[0], tl_y + tl_x + element[1])))
+                    curses_status(scrn, 'skipped one pixel. Pause is now enabled')
+            elif chr(inp) == 'c':
+                # load existing config
+                if os.path.exists(cfg_path):
+                    with open(cfg_path, 'r') as f:
+                        cfg = json.load(f)
+                else:
+                    cfg = {}
+                # ask the user for new options
+                cfg['method'] = curses_selection(scrn, 'Select the default drawing method (current: ' + (cfg['method'] if 'method' in cfg else '<none>') + ')',
+                                                 ['random', 'prog', 'rev-prog'])
+                cfg['paused'] = (curses_selection(scrn, 'Will the drawing be paused by default?', ['YES', 'NO']) == 'YES')
+                # save config
+                with open(cfg_path, 'w') as f:
+                    json.dump(cfg, f)
+            elif chr(inp) == 'q':
+                exit()
+        # print some info
+        scrn.addstr(1, 0, 'Current position: ' + str((tl_x + x, tl_y + y)))
+        scrn.addstr(2, 0, 'Cooldown        : ' + '{:4.1f}'.format(canv.remaining_cooldown()) + ' seconds')
+        scrn.addstr(3, 0, 'Progress        : ' + '{:5.2f}'.format(100 - (100 * len(choice_list) / start_px_cnt)) + '%')
+        curses_bar(scrn, 4, 0, 1 - (len(choice_list) / start_px_cnt), t_w)
+        scrn.addstr(5, 0, 'Remaining time  : around ' + str(math.ceil(len(choice_list) / 15)) + ' minutes     ')
+        scrn.addstr(t_h - 2, 0, 'P - pause',              curses.A_REVERSE); scrn.addstr('    ')
+        scrn.addstr(            'R - resume',             curses.A_REVERSE); scrn.addstr('    ')
+        scrn.addstr(            'M - change method',      curses.A_REVERSE); scrn.addstr('    ')
+        scrn.addstr(            'S - skip pixel',         curses.A_REVERSE); scrn.addstr('    ')
+        scrn.addstr(            'C - change default cfg', curses.A_REVERSE); scrn.addstr('    ')
+        scrn.addstr(            'Q - quit',               curses.A_REVERSE); scrn.addstr('    ')
+        scrn.refresh()
+        # some tests
+        if canv.remaining_cooldown() >= 50:
             scrn.addstr(2, 0, 'Cooldown        : ' + '{:4.1f}'.format(canv.remaining_cooldown()) + ' seconds')
             curses_status(scrn, 'cooling down')
+            continue
+        if paused:
+            curses_status(scrn, 'paused')
+            continue
+        # pick a pixel to draw
+        if method == 'random':
+            element = random.choice(choice_list)
+        elif method == 'prog':
+            element = choice_list[0]
+        elif method == 'rev-prog':
+            element = choice_list[-1]
+        choice_list.remove(element)
+        (x, y) = element
         # get pixel color
         if channels == 4:
             (b, g, r, a) = img[y, x]
@@ -232,13 +307,6 @@ def run(scrn):
                 trying = False
             except:
                 curses_selection(scrn, 'An error occured. Place a pixel manually in your browser, return here and hit enter', ['OK'])
-        # print some info
-        scrn.addstr(1, 0, 'Current position: ' + str((tl_x + x, tl_y + y)))
-        scrn.addstr(2, 0, 'Cooldown        : ' + '{:4.1f}'.format(canv.remaining_cooldown()) + ' seconds')
-        scrn.addstr(3, 0, 'Progress        : ' + '{:5.2f}'.format(100 - (100 * len(choice_list) / start_px_cnt)) + '%')
-        scrn.addstr(4, 0, curses_bar(1 - (len(choice_list) / start_px_cnt), t_w))
-        scrn.addstr(5, 0, 'Remaining time  : around ' + str(math.ceil(len(choice_list) / 15)) + ' minutes     ')
-        scrn.refresh()
         # make a backup if needed
         bup_cnt = bup_cnt + 1
         if bup_cnt >= 10:
@@ -253,7 +321,7 @@ def run(scrn):
             # write the coordinates
             with open(path_parts[0] + '_bup.json', 'w') as fp:
                 json.dump({'x':tl_x, 'y':tl_y}, fp)
-    curses_selection(scrn, 'The art is complete!', ['OK'])
+    curses_selection(scrn, 'The art is complete!', ['QUIT'])
     # remove the backup if it exists
     if os.path.exists(path_parts[0] + '_bup' + path_parts[1]):
         os.remove(path_parts[0] + '_bup' + path_parts[1])
