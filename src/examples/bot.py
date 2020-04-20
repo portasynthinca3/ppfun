@@ -234,6 +234,10 @@ def run(scrn):
                 paused = False
             elif chr(inp) == 'm':
                 method = curses_selection(scrn, 'Select the drawing method (current: ' + method + ')', ['random', 'prog', 'rev-prog'])
+                # sort the array if the method is progressive
+                if method == 'prog' or method == 'rev-prog':
+                    curses_status(scrn, 'preparing the image for progressive drawing')
+                    choice_list.sort(key=lambda a: (a[1] * sz_x) + a[0])
             elif chr(inp) == 's':
                 if method not in ['prog', 'rev-prog']:
                     curses_selection(scrn, 'Pixel skipping is supported only in progressive and reverse-progressive modes', ['OK'])
@@ -255,7 +259,7 @@ def run(scrn):
                     cfg = {}
                 # ask the user for new options
                 cfg['method'] = curses_selection(scrn, 'Select the default drawing method (current: ' + (cfg['method'] if 'method' in cfg else '<none>') + ')',
-                                                 ['random', 'prog', 'rev-prog'])
+                                                      ['random', 'prog', 'rev-prog'])
                 cfg['paused'] = (curses_selection(scrn, 'Will the drawing be paused by default?', ['YES', 'NO']) == 'YES')
                 # save config
                 with open(cfg_path, 'w') as f:
