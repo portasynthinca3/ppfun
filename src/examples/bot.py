@@ -307,7 +307,10 @@ def run(scrn):
         trying = True
         while trying:
             try:
-                canv.set_pixel((tl_x + x, tl_y + y), canv.approx_color((r, g, b)))
+                succ = False
+                while not succ:
+                    succ = canv.set_pixel((tl_x + x, tl_y + y), canv.approx_color((r, g, b)))
+                    scrn.addstr(2, 0, 'Cooldown        : ' + '{:4.1f}'.format(canv.remaining_cooldown()) + ' seconds')
                 trying = False
             except:
                 curses_selection(scrn, 'An error occured. Place a pixel manually in your browser, return here and hit enter', ['OK'])

@@ -77,7 +77,7 @@ class PPFun_canv():
         if 'waitSeconds' in response:
             self._cooldown = response['waitSeconds']
             self._cooldown_upd = datetime.datetime.now()
-            return True
+        return response['success']
 
     # returns the remaining cooldown time in seconds
     def remaining_cooldown(self):
